@@ -7,6 +7,7 @@ require 'rubygems'
 require 'gollum'
 require 'erb'
 require 'sprockets'
+require 'shellwords'
 
 exec         = {}
 options      = {
@@ -67,6 +68,11 @@ opts = OptionParser.new do |opts|
     'Dynamically serve the currently checked-out branch.',
     'Resolves HEAD on each request. Mutually exclusive with --ref.') do
     wiki_options[:track_current_branch] = true
+  end
+  opts.on('--local-git-user',
+    'Use local git config user.name/email as commit author.',
+    'Read fresh on each commit. Falls back to defaults if unset.') do
+    wiki_options[:local_git_user] = true
   end
   opts.on("--bare", "Declare '<git-repo>' to be bare.") do
     wiki_options[:repo_is_bare] = true
@@ -308,6 +314,16 @@ else
       $stderr.puts "Gollum running with track-current-branch (currently on: #{current})"
     else
       $stderr.puts "Gollum running with track-current-branch"
+    end
+  end
+
+  if wiki_options[:local_git_user]
+    name = `git -C #{Shellwords.escape(gollum_path)} config --local --get user.name`.strip
+    email = `git -C #{Shellwords.escape(gollum_path)} config --local --get user.email`.strip
+    if !name.empty? && !email.empty?
+      $stderr.puts "Gollum running with local-git-user (currently: #{name} <#{email}>)"
+    else
+      $stderr.puts "Gollum running with local-git-user (WARNING: git config user.name/email not set -- will use Gollum defaults)"
     end
   end
 

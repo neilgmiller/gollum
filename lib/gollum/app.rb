@@ -10,6 +10,7 @@ require 'sprockets'
 require 'sprockets-helpers'
 require 'octicons'
 require 'pathname'
+require 'shellwords'
 
 require 'gollum'
 require 'gollum/assets'
@@ -133,6 +134,15 @@ module Precious
         if resolved[:detached]
           @allow_editing = false
           logger.warn "HEAD is detached at #{resolved[:ref][0..6]}, editing disabled" if settings.logging?
+        end
+      end
+
+      if settings.wiki_options[:local_git_user] && !request.get?
+        if session['gollum.author']
+          logger.info "local_git_user overridden by session author" if settings.logging?
+        else
+          author = resolve_local_git_user
+          session['gollum.author'] = author if author
         end
       end
 
@@ -759,6 +769,17 @@ module Precious
         { ref: head_content.sub('ref: refs/heads/', ''), detached: false }
       else
         { ref: head_content, detached: true }
+      end
+    end
+
+    def resolve_local_git_user
+      path = Shellwords.escape(settings.gollum_path)
+      name = `git -C #{path} config --get user.name`.strip
+      email = `git -C #{path} config --get user.email`.strip
+      if !name.empty? && !email.empty?
+        { name: name, email: email }
+      else
+        nil
       end
     end
 
