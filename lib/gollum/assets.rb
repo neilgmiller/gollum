@@ -17,7 +17,6 @@ module Precious
       env.append_path ::File.join(dir, 'public/gollum/fonts')
 
       env.js_compressor  = ::Precious::Assets::JS_COMPRESSOR if defined?(::Precious::Assets::JS_COMPRESSOR)
-      env.css_compressor = :sassc
 
       options = {
         sass_config: {
@@ -25,8 +24,12 @@ module Precious
         }
       }
 
-      env.register_transformer 'text/sass', 'text/css', Sprockets::SasscProcessor.new(options)
-      env.register_transformer 'text/scss', 'text/css', Sprockets::ScsscProcessor.new(options)
+      sassc_available = Gem.loaded_specs.key?('sassc') || Gem.loaded_specs.key?('sassc-embedded')
+      if sassc_available
+        env.css_compressor = :sassc
+        env.register_transformer 'text/sass', 'text/css', Sprockets::SasscProcessor.new(options)
+        env.register_transformer 'text/scss', 'text/css', Sprockets::ScsscProcessor.new(options)
+      end
 
       env.context_class.class_eval do
         def base_url

@@ -1,6 +1,7 @@
 source 'https://rubygems.org'
 
-gem 'warbler', git: 'https://github.com/jruby/warbler' if RUBY_PLATFORM == 'java'
+gem 'warbler', '~> 2.1', platforms: :jruby
+gem 'jruby-jars', '~> 9.4.9', platforms: :jruby
 
 # FIXME: There is an upstream JRuby 9.4.9.0 issue with `psych` and the latest
 # version of `jar-dependencies`. The issue will be resolved with the release of
