@@ -83,6 +83,19 @@ module Precious
     register Sinatra::Namespace
     include Precious::Helpers
 
+    # Validate wiki_options for mutually exclusive settings.
+    # cli_wiki_options is a snapshot of options set via CLI (before config file merge).
+    def self.validate_wiki_options!(wiki_options, cli_wiki_options = {})
+      if wiki_options[:track_current_branch] && wiki_options.key?(:ref)
+        ref_source = cli_wiki_options.key?(:ref) ? "CLI (--ref)" : "config file"
+        tcb_source = cli_wiki_options.key?(:track_current_branch) ? "CLI (--track-current-branch)" : "config file"
+        $stderr.puts "Error: --ref and --track-current-branch are mutually exclusive. Use one or the other."
+        $stderr.puts "  --track-current-branch set via: #{tcb_source}"
+        $stderr.puts "  --ref set via: #{ref_source}"
+        Kernel.exit(1)
+      end
+    end
+
     Encoding.default_external = "UTF-8"
 
     dir = File.dirname(File.expand_path(__FILE__))
@@ -114,6 +127,15 @@ module Precious
 
     before do
       @allow_editing = settings.wiki_options.fetch(:allow_editing, true)
+
+      if settings.wiki_options[:track_current_branch]
+        resolved = resolve_current_branch
+        if resolved[:detached]
+          @allow_editing = false
+          logger.warn "HEAD is detached at #{resolved[:ref][0..6]}, editing disabled" if settings.logging?
+        end
+      end
+
       @critic_markup = settings.wiki_options[:critic_markup]
       @redirects_enabled = settings.wiki_options.fetch(:redirects_enabled, true)
       @per_page_uploads = settings.wiki_options[:per_page_uploads]
@@ -718,7 +740,26 @@ module Precious
     end
 
     def wiki_new
-      Gollum::Wiki.new(settings.gollum_path, settings.wiki_options)
+      opts = settings.wiki_options
+      if opts[:track_current_branch]
+        resolved = resolve_current_branch
+        opts = opts.merge(ref: resolved[:ref])
+      end
+      Gollum::Wiki.new(settings.gollum_path, opts)
+    end
+
+    def resolve_current_branch
+      git_path = settings.gollum_path
+      git_dir = settings.wiki_options[:repo_is_bare] ?
+        git_path :
+        File.join(git_path, '.git')
+      head_content = File.read(File.join(git_dir, 'HEAD')).strip
+
+      if head_content.start_with?('ref: refs/heads/')
+        { ref: head_content.sub('ref: refs/heads/', ''), detached: false }
+      else
+        { ref: head_content, detached: true }
+      end
     end
 
     # Options parameter to Gollum::Committer#initialize

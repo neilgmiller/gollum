@@ -63,6 +63,11 @@ opts = OptionParser.new do |opts|
   opts.on('-r', '--ref [REF]', 'Specify the branch to serve. Default: \'master\'.') do |ref|
     wiki_options[:ref] = ref
   end
+  opts.on('--track-current-branch',
+    'Dynamically serve the currently checked-out branch.',
+    'Resolves HEAD on each request. Mutually exclusive with --ref.') do
+    wiki_options[:track_current_branch] = true
+  end
   opts.on("--bare", "Declare '<git-repo>' to be bare.") do
     wiki_options[:repo_is_bare] = true
   end
@@ -279,6 +284,8 @@ else
   Precious::App.set(:gollum_path, gollum_path)
   Precious::App.set(:wiki_options, wiki_options)
 
+  cli_wiki_options = wiki_options.dup
+
   if cfg = options[:config]
     # If the path begins with a '/' it will be considered an absolute path,
     # otherwise it will be relative to the CWD
@@ -286,6 +293,22 @@ else
     require cfg
     # The options may have been updated. Reload them.
     wiki_options = Precious::App.wiki_options
+  end
+
+  Precious::App.validate_wiki_options!(wiki_options, cli_wiki_options)
+
+  if wiki_options[:track_current_branch]
+    git_path = gollum_path
+    git_dir = File.join(git_path, '.git')
+    head_content = File.read(File.join(git_dir, 'HEAD')).strip rescue nil
+    if head_content
+      current = head_content.start_with?('ref: refs/heads/') ?
+        head_content.sub('ref: refs/heads/', '') :
+        "detached at #{head_content[0..6]}"
+      $stderr.puts "Gollum running with track-current-branch (currently on: #{current})"
+    else
+      $stderr.puts "Gollum running with track-current-branch"
+    end
   end
 
   base_path = wiki_options[:base_path]
