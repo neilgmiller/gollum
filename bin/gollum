@@ -318,13 +318,27 @@ else
   end
 
   if wiki_options[:local_git_user]
-    name = `git -C #{Shellwords.escape(gollum_path)} config --local --get user.name`.strip
-    email = `git -C #{Shellwords.escape(gollum_path)} config --local --get user.email`.strip
+    name = `git -C #{Shellwords.escape(gollum_path)} config --get user.name`.strip
+    email = `git -C #{Shellwords.escape(gollum_path)} config --get user.email`.strip
     if !name.empty? && !email.empty?
       $stderr.puts "Gollum running with local-git-user (currently: #{name} <#{email}>)"
     else
       $stderr.puts "Gollum running with local-git-user (WARNING: git config user.name/email not set -- will use Gollum defaults)"
     end
+  end
+
+  # Startup summary: active features with source attribution (development mode only)
+  if Precious::App.environment == :development
+    features = []
+    if wiki_options[:track_current_branch]
+      src = cli_wiki_options.key?(:track_current_branch) ? "CLI" : "config file"
+      features << "track-current-branch: ON (#{src})"
+    end
+    if wiki_options[:local_git_user]
+      src = cli_wiki_options.key?(:local_git_user) ? "CLI" : "config file"
+      features << "local-git-user: ON (#{src})"
+    end
+    $stderr.puts "Active features: #{features.join(', ')}" unless features.empty?
   end
 
   base_path = wiki_options[:base_path]
