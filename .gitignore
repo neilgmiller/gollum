@@ -10,3 +10,5 @@ node_modules
 !.sprockets*
 !lib/gollum/public/gollum/stylesheets/_styles.css
 !.github*
+/gollum*.war
+!.planning/
